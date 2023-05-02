@@ -1,0 +1,126 @@
+import pandas as pd
+import requests
+import json
+import urllib.parse
+
+class Schedules:
+    """Get schedules from database service
+    """
+    def __init__(self, url):
+        """Constructor
+        Args:
+            url (str): link to database service
+        """
+        
+        self.url = url
+        self.session = requests.Session()
+
+    def from_schedule_ids(self, schedule_ids: list[int], ceil_limit: int=1_000):
+        """method for getting schedule pivots from schedule id list
+
+        Args:   
+            schedule_ids (list[int]): list of schedules ids
+            ceil_limit (int, optional): limit of records in one dataframe. Defaults to 10_000.
+        """
+        if len(schedule_ids) == 0:
+            raise Exception("empty list of schedule ids")
+        self.ceil_limit = ceil_limit
+        self.objects = schedule_ids
+        
+        return self
+        
+    def from_works_or_resources(self, works_list: list[int], resource_list: list[int] = [], ceil_limit: int=1_000):
+        """method for getting schedukes pivots from list of works or resources ids
+
+        Args:
+            works_list (list[int]): list of works ids
+            resource_list (list, optional): list of resources ids. Defaults to [].
+            ceil_limit (_type_, optional): limit of records in one dataframe. Defaults to 10_000.
+        """
+        if len(works_list) == 0:
+            raise Exception("empty works list")
+        self.ceil_limit = ceil_limit
+        self.works_list = works_list
+        self.resource_list = resource_list
+        self.objects = list({*self._get_objects_by_resource(), *self._get_objects_by_works()})
+
+        return self
+    
+    def _get_objects_by_resource(self):
+        if len(self.resource_list) == 0:
+            return []
+        data = json.dumps(self.resource_list)
+        response = self.session.post(urllib.parse.urljoin(self.url, "resource/schedule_ids"), data=data)
+
+        return response.json()
+    
+    def _get_objects_by_works(self):
+        data = json.dumps(self.works_list)
+        response = self.session.post(urllib.parse.urljoin(self.url, "work/schedule_ids"), data=data)
+
+        return response.json()
+   
+    def __iter__(self):
+        return SchedulesIterator(self.objects, self.session, self.url, self.ceil_limit)
+
+
+class SchedulesIterator:
+    def __init__(self, objects, session, url, ceil_limit):
+        self.objects = objects
+        self.session = session
+        self.url = url
+        self.ceil_limit = ceil_limit
+        self.index = 0
+        self.start_date = "1970-1-1"
+
+    def _select_works_from_db(self):
+        data = json.dumps({
+            "object_id": self.objects[self.index],
+            "start_date": self.start_date,
+            "max_work_statuses": self.ceil_limit
+        })
+        response = self.session.post(urllib.parse.urljoin(self.url, "schedule/works_by_schedule"), data=data)
+        works = response.json()
+        df = pd.DataFrame(works)       
+        
+        return df
+
+    def _select_resources_from_db(self, start_date, finish_date):
+        data = json.dumps({
+            "object_id": self.objects[self.index],
+            "start_date": start_date,
+            "finish_date": finish_date
+        })
+        response = self.session.post(urllib.parse.urljoin(self.url, "schedule/resources_by_schedule"), data=data)
+        resources = response.json()
+        df = pd.DataFrame(resources)
+        
+        return df
+    
+    def __next__(self):
+        try:
+            works_df = self._select_works_from_db()
+
+            if len(works_df) == self.ceil_limit:
+                self.start_date = works_df.date.max()
+                works_df = works_df[works_df.date != self.start_date]
+                res_df = self._select_resources_from_db(works_df["date"].min(), works_df["date"].max())    
+            else:
+                res_df = self._select_resources_from_db(works_df["date"].min(), works_df["date"].max())  
+                self.index += 1
+                self.start_date = "1970-1-1"
+                
+            
+        except IndexError:
+            raise StopIteration
+        
+        df = pd.concat([works_df, res_df])
+
+        df = self.convert_df(df)
+
+        return df
+
+    @staticmethod
+    def convert_df(df: pd.DataFrame):
+        result = df.pivot_table("fraction", ["is_work", "basic_name", "name", "object_id", "object_name", "full_fraction", ], "date")
+        return result.reset_index()
