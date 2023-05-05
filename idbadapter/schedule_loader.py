@@ -30,7 +30,7 @@ class Schedules:
         return self
         
     def from_works_or_resources(self, works_list: list[int], resource_list: list[int] = [], ceil_limit: int=1_000):
-        """method for getting schedukes pivots from list of works or resources ids
+        """method for getting schedules pivots from list of works or resources ids
 
         Args:
             works_list (list[int]): list of works ids
@@ -45,6 +45,35 @@ class Schedules:
         self.objects = list({*self._get_objects_by_resource(), *self._get_objects_by_works()})
 
         return self
+    
+    def from_names(self, works: list[str], resources: list[str] = [], ceil_limit: int = 1_000):
+        """method for getting schedules by works names list
+
+        Args:
+            work_name_list (list[str]): lists of basic works names 
+            ceil_limit (int, optional): limit of records in one dataframe. Defaults to 1_000.
+        """
+        if len(works) == 0:
+            raise Exception("Empty works list")
+        self.ceil_limit = ceil_limit
+        self.works_list = self._get_works_ids_by_names(works)
+        self.resource_list = self._get_resource_ids_by_names(resources)
+        
+        self.objects = list({*self._get_objects_by_resource(), *self._get_objects_by_works()})
+        
+        return self
+           
+    def _get_works_ids_by_names(self, work_name_list):
+        data = json.dumps(work_name_list)
+        response = self.session.post(urllib.parse.urljoin(self.url, "work/get_basic_works_ids"), data=data)
+
+        return response.json()
+    
+    def _get_resource_ids_by_names(self, resource_names_list):
+        data = json.dumps(resource_names_list)
+        response = self.session.post(urllib.parse.urljoin(self.url, "resource/get_basic_resouce_ids"), data=data)
+        
+        return response.json()
     
     def _get_objects_by_resource(self):
         if len(self.resource_list) == 0:
@@ -100,7 +129,6 @@ class SchedulesIterator:
     def __next__(self):
         try:
             works_df = self._select_works_from_db()
-
             if len(works_df) == self.ceil_limit:
                 self.start_date = works_df.date.max()
                 works_df = works_df[works_df.date != self.start_date]
