@@ -3,4 +3,4 @@
 
 ```pip install idbadapter```
 
-
+[Пример](example.ipynb)
