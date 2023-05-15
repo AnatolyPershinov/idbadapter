@@ -1,6 +1,6 @@
 from idbadapter.schedule_loader import Schedules
 
-URL = "http://10.32.15.31:8000"
+URL = "http://localhost:8000"
 
 adapter = Schedules(URL)
 
