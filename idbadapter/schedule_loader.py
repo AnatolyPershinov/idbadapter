@@ -53,7 +53,7 @@ class Schedules:
             work_name_list (list[str]): lists of basic works names 
             ceil_limit (int, optional): limit of records in one dataframe. Defaults to 1_000.
         """
-        if len(works) == 0:
+        if len(works) == 0 and len(resources) == 0:
             raise Exception("Empty works list")
         self.ceil_limit = ceil_limit
         self.works_list = self._get_works_ids_by_names(works)
@@ -66,13 +66,17 @@ class Schedules:
     def _get_works_ids_by_names(self, work_name_list):
         data = json.dumps(work_name_list)
         response = self.session.post(urllib.parse.urljoin(self.url, "work/get_basic_works_ids"), data=data)
-
+        if "detail" in response.json(): 
+            return []
         return response.json()
     
     def _get_resource_ids_by_names(self, resource_names_list):
+        if len(resource_names_list) == 0:
+            return []
         data = json.dumps(resource_names_list)
-        response = self.session.post(urllib.parse.urljoin(self.url, "resource/get_basic_resouce_ids"), data=data)
-        
+        response = self.session.post(urllib.parse.urljoin(self.url, "resource/get_basic_resource_ids"), data=data)
+        if "detail" in response.json():
+            return []
         return response.json()
     
     def _get_objects_by_resource(self):
@@ -80,13 +84,13 @@ class Schedules:
             return []
         data = json.dumps(self.resource_list)
         response = self.session.post(urllib.parse.urljoin(self.url, "resource/schedule_ids"), data=data)
-
         return response.json()
     
     def _get_objects_by_works(self):
+        if len(self.works_list) == 0:
+            return []
         data = json.dumps(self.works_list)
         response = self.session.post(urllib.parse.urljoin(self.url, "work/schedule_ids"), data=data)
-
         return response.json()
    
     def __iter__(self):

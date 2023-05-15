@@ -1,9 +1,9 @@
 from idbadapter.schedule_loader import Schedules
 
-URL = "http://127.0.0.1:8000"
+URL = "http://10.32.15.31:8000"
 
 adapter = Schedules(URL)
 
 def main():
-    for pivot in adapter.from_names(works=["Монтаж привода ПРН3-10 УХЛ1", "Монтаж шлейфов и спиральных зажимов", "тест"], resources=["тест"]):
+    for pivot in adapter.from_names(works=["123"], resources=[]):
         print(pivot)    
