@@ -46,7 +46,7 @@ class Schedules:
 
         return self
     
-    def from_names(self, works: list[str], resources: list[str] = [], ceil_limit: int = 1_000, crossing=False):
+    def from_names(self, works: list[str], resources: list[str] = [], ceil_limit: int = 1_000, objects_limit: int = 1, crossing=False):
         """method for getting schedules by works names list
 
         Args:
@@ -56,6 +56,7 @@ class Schedules:
         if len(works) == 0 and len(resources) == 0:
             raise Exception("Empty works list")
         self.ceil_limit = ceil_limit
+        self.objects_limit = objects_limit
         self.works_list = self._get_works_ids_by_names(works)
         self.resource_list = self._get_resource_ids_by_names(resources)
         
@@ -63,6 +64,9 @@ class Schedules:
             self.objects =list(set(self._get_objects_by_resource()).intersection(set(self._get_objects_by_works())))
         else:        
             self.objects = list({*self._get_objects_by_resource(), *self._get_objects_by_works()})
+            
+        if len(self.objects) == 0:
+            raise Exception("Objects not found")
         
         return self
            
@@ -97,43 +101,50 @@ class Schedules:
         return response.json()
    
     def __iter__(self):
-        return SchedulesIterator(self.objects, self.session, self.url, self.ceil_limit)
+        return SchedulesIterator(self.objects, self.session, self.url, self.ceil_limit, self.objects_limit)
 
 
 class SchedulesIterator:
-    def __init__(self, objects, session, url, ceil_limit):
+    def __init__(self, objects, session, url, ceil_limit, objects_limit):
         self.objects = objects
         self.session = session
+        self.objects_limit = objects_limit if objects_limit != -1 else len(objects)
         self.url = url
         self.ceil_limit = ceil_limit
         self.index = 0
         self.start_date = "1970-1-1"
+        self.object_slice = self.objects[self.index:self.index+self.objects_limit]
 
     def _select_works_from_db(self):
         data = json.dumps({
-            "object_id": self.objects[self.index],
+            "object_id": self.object_slice,
             "start_date": self.start_date,
             "max_work_statuses": self.ceil_limit
         })
+
         response = self.session.post(urllib.parse.urljoin(self.url, "schedule/works_by_schedule"), data=data)
         works = response.json()
         df = pd.DataFrame(works)       
-        
+
         return df
 
     def _select_resources_from_db(self, start_date, finish_date):
         data = json.dumps({
-            "object_id": self.objects[self.index],
+            "object_id": self.object_slice,
             "start_date": start_date,
             "finish_date": finish_date
         })
         response = self.session.post(urllib.parse.urljoin(self.url, "schedule/resources_by_schedule"), data=data)
         resources = response.json()
+
         df = pd.DataFrame(resources)
         
         return df
     
     def __next__(self):
+        if len(self.object_slice) == 0:
+            raise StopIteration
+        
         try:
             works_df = self._select_works_from_db()
             if len(works_df) == self.ceil_limit:
@@ -142,10 +153,10 @@ class SchedulesIterator:
                 res_df = self._select_resources_from_db(works_df["date"].min(), works_df["date"].max())    
             else:
                 res_df = self._select_resources_from_db(works_df["date"].min(), works_df["date"].max())  
-                self.index += 1
                 self.start_date = "1970-1-1"
-                
-            
+                self.index += self.objects_limit
+                self.object_slice = self.objects[self.index:self.index+self.objects_limit]
+                    
         except IndexError:
             raise StopIteration
         
