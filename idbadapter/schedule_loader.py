@@ -46,7 +46,7 @@ class Schedules:
 
         return self
     
-    def from_names(self, works: list[str], resources: list[str] = [], ceil_limit: int = 1_000):
+    def from_names(self, works: list[str], resources: list[str] = [], ceil_limit: int = 1_000, crossing=False):
         """method for getting schedules by works names list
 
         Args:
@@ -59,7 +59,10 @@ class Schedules:
         self.works_list = self._get_works_ids_by_names(works)
         self.resource_list = self._get_resource_ids_by_names(resources)
         
-        self.objects = list({*self._get_objects_by_resource(), *self._get_objects_by_works()})
+        if crossing:
+            self.objects =list(set(self._get_objects_by_resource()).intersection(set(self._get_objects_by_works())))
+        else:        
+            self.objects = list({*self._get_objects_by_resource(), *self._get_objects_by_works()})
         
         return self
            

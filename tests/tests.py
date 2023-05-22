@@ -5,5 +5,10 @@ URL = "http://localhost:8000"
 adapter = Schedules(URL)
 
 def main():
-    for pivot in adapter.from_names(works=["123"], resources=[]):
+    works = ['Изготовление свай', 'Монтаж свай металлических', 'Монтаж оголовков', 'Монтаж стоек, связей']
+    for pivot in adapter.from_names(works=works, resources=[], ceil_limit=10_000, crossing=False):
         print(pivot)    
+        
+
+if __name__ == "__main__":
+    main()
