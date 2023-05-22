@@ -2,7 +2,7 @@
 
 from distutils.core import setup
 
-version = '1.1'
+version = '1.3'
 
 long_description = "Сache module for batch loading of data"
 
