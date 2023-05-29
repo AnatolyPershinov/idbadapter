@@ -7,7 +7,7 @@ version = '1.3'
 long_description = "Сache module for batch loading of data"
 
 setup(name='idbadapter',
-      version='1.3',
+      version='1.4',
       description='Сache module for batch loading of data',
       long_description=long_description,
       url="https://github.com/AnatolyPershinov/gpn_cache_module",
