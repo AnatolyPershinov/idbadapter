@@ -1,7 +1,7 @@
 import pandas as pd
 import requests
 import json
-import urllib.parse
+from urllib.parse import urljoin
 
 class Schedules:
     """Get schedules from database service
@@ -70,9 +70,35 @@ class Schedules:
         
         return self
            
+    def get_works_names(self, work_type="all"):
+        queries = {
+            "all": "SELECT DISTINCT name FROM works",
+            "granulary": "SELECT DISTINCT name FROM basic_works",
+        }
+        if work_type not in queries:
+            raise ValueError(f"Incorrect work_type argument. {work_type}")
+        
+        data = json.dumps({"body": queries[work_type]})        
+        response = self.session.post(urljoin(self.url, "query/select"), data=data)
+        
+        return [k[0] for k in response.json()]
+        
+    def get_resources_names(self, res_type="all"):
+        queries = {
+            "all": "SELECT DISTINCT name FROM basic_resources",
+            "granulary": "SELECT DISTINCT name FROM basic_resources",
+        }
+        
+        if res_type not in queries:
+            raise ValueError(f"Incorrect res_type argument. {res_type}")
+        
+        data = json.dumps({"body": queries[res_type]})        
+        response = self.session.post(urljoin(self.url, "query/select"), data=data)
+        return [k[0] for k in response.json()]
+    
     def _get_works_ids_by_names(self, work_name_list):
         data = json.dumps(work_name_list)
-        response = self.session.post(urllib.parse.urljoin(self.url, "work/get_basic_works_ids"), data=data)
+        response = self.session.post(urljoin(self.url, "work/get_basic_works_ids"), data=data)
         if "detail" in response.json(): 
             return []
         return response.json()
@@ -81,7 +107,7 @@ class Schedules:
         if len(resource_names_list) == 0:
             return []
         data = json.dumps(resource_names_list)
-        response = self.session.post(urllib.parse.urljoin(self.url, "resource/get_basic_resource_ids"), data=data)
+        response = self.session.post(urljoin(self.url, "resource/get_basic_resource_ids"), data=data)
         if "detail" in response.json():
             return []
         return response.json()
@@ -90,14 +116,14 @@ class Schedules:
         if len(self.resource_list) == 0:
             return []
         data = json.dumps(self.resource_list)
-        response = self.session.post(urllib.parse.urljoin(self.url, "resource/schedule_ids"), data=data)
+        response = self.session.post(urljoin(self.url, "resource/schedule_ids"), data=data)
         return response.json()
     
     def _get_objects_by_works(self):
         if len(self.works_list) == 0:
             return []
         data = json.dumps(self.works_list)
-        response = self.session.post(urllib.parse.urljoin(self.url, "work/schedule_ids"), data=data)
+        response = self.session.post(urljoin(self.url, "work/schedule_ids"), data=data)
         return response.json()
    
     def __iter__(self):
@@ -122,7 +148,7 @@ class SchedulesIterator:
             "max_work_statuses": self.ceil_limit
         })
 
-        response = self.session.post(urllib.parse.urljoin(self.url, "schedule/works_by_schedule"), data=data)
+        response = self.session.post(urljoin(self.url, "schedule/works_by_schedule"), data=data)
         works = response.json()
         df = pd.DataFrame(works)       
 
@@ -134,7 +160,7 @@ class SchedulesIterator:
             "start_date": start_date,
             "finish_date": finish_date
         })
-        response = self.session.post(urllib.parse.urljoin(self.url, "schedule/resources_by_schedule"), data=data)
+        response = self.session.post(urljoin(self.url, "schedule/resources_by_schedule"), data=data)
         resources = response.json()
 
         df = pd.DataFrame(resources)
